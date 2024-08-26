@@ -1,33 +1,33 @@
-use core::ops::{Generator, GeneratorState};
 use core::iter::Iterator;
 use core::marker::Unpin;
+use core::ops::{Coroutine, CoroutineState};
 use core::pin::Pin;
 
-/// an iterator that holds an internal generator representing
+/// an iterator that holds an internal coroutine representing
 /// the iteration state
 #[derive(Copy, Clone, Debug)]
 pub struct GenIter<T>(pub T)
 where
-    T: Generator<Return = ()> + Unpin;
+    T: Coroutine<Return = ()> + Unpin;
 
 impl<T> Iterator for GenIter<T>
 where
-    T: Generator<Return = ()> + Unpin,
+    T: Coroutine<Return = ()> + Unpin,
 {
     type Item = T::Yield;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match Pin::new(&mut self.0).resume(()) {
-            GeneratorState::Yielded(n) => Some(n),
-            GeneratorState::Complete(()) => None,
+            CoroutineState::Yielded(n) => Some(n),
+            CoroutineState::Complete(()) => None,
         }
     }
 }
 
 impl<G> From<G> for GenIter<G>
 where
-    G: Generator<Return = ()> + Unpin,
+    G: Coroutine<Return = ()> + Unpin,
 {
     #[inline]
     fn from(gen: G) -> Self {
@@ -36,10 +36,10 @@ where
 }
 
 
-/// macro to simplify iterator - via - generator construction
+/// macro to simplify iterator - via - coroutine construction
 ///
 /// ```
-/// #![feature(generators)]
+/// #![feature(coroutines)]
 ///
 /// use gen_iter::gen_iter;
 ///
@@ -56,10 +56,10 @@ where
 #[macro_export]
 macro_rules! gen_iter {
     ($block: block) => {
-        $crate::GenIter(|| $block)
+        $crate::GenIter(#[coroutine] || $block)
     };
     (move $block: block) => {
-        $crate::GenIter(move || $block)
+        $crate::GenIter(#[coroutine] move || $block)
     }
 }
 
@@ -82,10 +82,13 @@ mod tests {
 
     #[test]
     fn into_gen_iter() {
-        let mut g: GenIter<_> = (|| {
-            yield 1;
-            yield 2;
-        }).into();
+        let mut g: GenIter<_> = (
+            #[coroutine]
+            || {
+                yield 1;
+                yield 2;
+            }
+        ).into();
 
         assert_eq!(g.next(), Some(1));
         assert_eq!(g.next(), Some(2));

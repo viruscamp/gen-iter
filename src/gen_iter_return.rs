@@ -1,19 +1,19 @@
-use core::ops::{Generator, GeneratorState};
-use core::iter::{Iterator, FusedIterator};
+use core::iter::{FusedIterator, Iterator};
 use core::marker::Unpin;
+use core::ops::{Coroutine, CoroutineState};
 use core::pin::Pin;
 
-/// `GenIterReturn<G>` holds a generator `G` or the return value of `G`,
+/// `GenIterReturn<G>` holds a coroutine `G` or the return value of `G`,
 /// `&mut GenIterReturn<G>` acts as an iterator.
-/// 
+///
 /// Differences with `GenIter<G>`:
-/// 1. able to get return value of a generator
-/// 2. safe to call `next()` after generator is done without panic
+/// 1. able to get return value of a coroutine
+/// 2. safe to call `next()` after coroutine is done without panic
 /// 3. maybe less efficient than `GenIter<G>`
 #[derive(Copy, Clone, Debug)]
-pub struct GenIterReturn<G: Generator + Unpin>(Result<G::Return, G>);
+pub struct GenIterReturn<G: Coroutine + Unpin>(Result<G::Return, G>);
 
-impl<G: Generator + Unpin> GenIterReturn<G> {
+impl<G: Coroutine + Unpin> GenIterReturn<G> {
     #[inline]
     pub fn new(g: G) -> Self {
         GenIterReturn(Err(g))
@@ -37,13 +37,13 @@ impl<G: Generator + Unpin> GenIterReturn<G> {
 /// in which return value cannot be got.
 /// ```compile_fail
 /// // !!INVALID CODE!!
-/// # #![feature(generators)]
+/// # #![feature(coroutines)]
 /// # use gen_iter::gen_iter_return;
 /// let mut g = gen_iter_return!({ yield 1; return "done"; });
 /// for v in g {} // invalid, because `GenIterReturn<G>` is not `Iterator`
 /// let ret = g.return_or_self(); // g is dropped after for loop
 /// ```
-impl<G: Generator + Unpin> Iterator for &mut GenIterReturn<G> {
+impl<G: Coroutine + Unpin> Iterator for &mut GenIterReturn<G> {
     type Item = G::Yield;
 
     #[inline]
@@ -51,29 +51,29 @@ impl<G: Generator + Unpin> Iterator for &mut GenIterReturn<G> {
         match self.0 {
             Ok(_) => None,
             Err(ref mut g) => match Pin::new(g).resume(()) {
-                GeneratorState::Yielded(y) => Some(y),
-                GeneratorState::Complete(r) => {
+                CoroutineState::Yielded(y) => Some(y),
+                CoroutineState::Complete(r) => {
                     self.0 = Ok(r);
                     None
                 },
-            }
+            },
         }
     }
 }
 
 /// `GenIterReturn<G>` satisfies the trait `FusedIterator`
-impl<G: Generator + Unpin> FusedIterator for &mut GenIterReturn<G> {}
+impl<G: Coroutine + Unpin> FusedIterator for &mut GenIterReturn<G> {}
 
-impl<G: Generator + Unpin> From<G> for GenIterReturn<G> {
+impl<G: Coroutine + Unpin> From<G> for GenIterReturn<G> {
     #[inline]
     fn from(g: G) -> Self {
         GenIterReturn::new(g)
     }
 }
 
-/// macro to simplify iterator - via - generator with return value construction
+/// macro to simplify iterator - via - coroutine with return value construction
 /// ```
-/// #![feature(generators)]
+/// #![feature(coroutines)]
 ///
 /// use gen_iter::gen_iter_return;
 ///
@@ -84,18 +84,18 @@ impl<G: Generator + Unpin> From<G> for GenIterReturn<G> {
 /// });
 ///
 /// assert_eq!((&mut g).collect::<Vec<_>>(), [1, 2]); // use `&mut g` as an iterator
-/// assert_eq!(g.is_done(), true); // check whether generator is done
+/// assert_eq!(g.is_done(), true); // check whether the coroutine is done
 /// assert_eq!((&mut g).next(), None); // safe to call `next()` after done
-/// assert_eq!(g.return_or_self().ok(), Some("done")); // get return value of generator
+/// assert_eq!(g.return_or_self().ok(), Some("done")); // get return value of the coroutine
 /// ```
 #[macro_export]
 macro_rules! gen_iter_return {
     ($block: block) => {
-        $crate::GenIterReturn::new(|| $block)
+        $crate::GenIterReturn::new(#[coroutine] || $block)
     };
     (move $block: block) => {
-        $crate::GenIterReturn::new(move || $block)
-    }
+        $crate::GenIterReturn::new(#[coroutine] move || $block)
+    };
 }
 
 #[cfg(test)]
@@ -106,17 +106,20 @@ mod tests {
     /// and show that it won't panic when call `next()` even exhausted.
     #[test]
     fn it_works() {
-        let mut g = GenIterReturn::new(|| {
-            yield 1;
-            return "done";
-        });
+        let mut g = GenIterReturn::new(
+            #[coroutine]
+            || {
+                yield 1;
+                return "done";
+            },
+        );
 
         assert_eq!((&mut g).next(), Some(1));
         assert_eq!(g.is_done(), false);
 
         g = match g.return_or_self() {
-            Ok(_) => panic!("generator is done but should not"),
-            Err(g) => g
+            Ok(_) => panic!("coroutine is done but should not"),
+            Err(g) => g,
         };
 
         assert_eq!((&mut g).next(), None);
@@ -128,11 +131,14 @@ mod tests {
     }
 
     #[test]
-    fn from_generator() {
-        let mut g = GenIterReturn::from(|| {
-            yield 1;
-            return "done";
-        });
+    fn from_coroutine() {
+        let mut g = GenIterReturn::from(
+            #[coroutine]
+            || {
+                yield 1;
+                return "done";
+            },
+        );
 
         assert_eq!((&mut g).next(), Some(1));
         assert_eq!((&mut g).next(), None);

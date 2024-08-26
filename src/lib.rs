@@ -1,13 +1,18 @@
-//! # gen_iter - create generators to use as iterators
-//!
-//! ## [`GenIter`] and [`gen_iter!`]
-//! [`GenIter`] converts a [`Generator<(), Return=()>`](core::ops::Generator) into an iterator over the
-//! yielded type of the generator. The return type of the generator needs to be `()`.
+//! # gen_iter - create coroutines to use as iterators
 //! 
+//! **Important: [rename Generator to Coroutine](https://github.com/rust-lang/rust/pull/116958)**
+//!
+//! ## Prerequirements
+//! Nightly rust toolchain of edition 2021 after 2023-10-21.
+//! 
+//! ## [`GenIter`] and [`gen_iter!`]
+//! [`GenIter`] converts a [`Coroutine<(), Return=()>`](core::ops::Coroutine) into an iterator over the
+//! yielded type of the coroutine. The return type of the coroutine needs to be `()`.
+//!
 //! [`gen_iter!`] helps to create a [`GenIter`]
 //!
 //! ```
-//! #![feature(generators)]
+//! #![feature(coroutines)]
 //!
 //! use gen_iter::gen_iter;
 //!
@@ -32,14 +37,14 @@
 //! ```
 //! 
 //! ## [`GenIterReturn`] and [`gen_iter_return!`]
-//! [`GenIterReturn`] can be converted from a [`Generator<()>`](core::ops::Generator),
+//! [`GenIterReturn`] can be converted from a [`Coroutine<()>`](core::ops::Coroutine),
 //! `&mut GenIterReturn<G>` can be used as iterator.
-//! The return value of the generator can be got after the iterator is exhausted.
+//! The return value of the coroutine can be got after the iterator is exhausted.
 //! 
 //! [`gen_iter_return!`] helps to create a [`GenIterReturn`].
 //! 
 //! ```
-//! #![feature(generators)]
+//! #![feature(coroutines)]
 //!
 //! use gen_iter::gen_iter_return;
 //!
@@ -52,12 +57,13 @@
 //! for y in &mut g {
 //!     println!("yield {}", y);
 //! }
-//! println!("generator is_done={}", g.is_done()); // true
-//! println!("generator returns {}", g.return_or_self().ok().unwrap()); // "done"
+//! println!("coroutine is_done={}", g.is_done()); // true
+//! println!("coroutine returns {}", g.return_or_self().ok().unwrap()); // "done"
 //! ```
 
 #![no_std]
-#![feature(generators, generator_trait)]
+#![feature(coroutines, coroutine_trait)]
+#![feature(stmt_expr_attributes)]
 
 mod gen_iter;
 pub use gen_iter::*;

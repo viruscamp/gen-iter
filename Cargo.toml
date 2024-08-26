@@ -1,9 +1,10 @@
 [package]
 name = "gen-iter"
-version = "0.2.1"
+version = "0.4.0"
+edition = "2021"
 authors = ["tinaun <tinagma@gmail.com>"]
-keywords = ["generator", "iterator"]
-description = "temporary util for creating iterators using generators"
+keywords = ["coroutine", "generator", "iterator"]
+description = "temporary util for creating iterators using coroutines"
 
 documentation = "https://docs.rs/gen-iter"
 repository = "https://github.com/tinaun/gen-iter"

@@ -1,3 +1,6 @@
+# version 0.4.0
+* follow [rename Generator to Coroutine](https://github.com/rust-lang/rust/pull/116958) and fix #10
+
 # version 0.3
 * made the crate no_std compatible (#5)
 * added struct GenIterReturn and macro gen_iter_return! to iterate over a generator and get the return value (#6)
