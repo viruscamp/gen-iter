@@ -1,3 +1,7 @@
+# version 0.4.1
+* add support for immovable coroutine (self-referenced)
+* change the varialble name `gen` as it will be a keyword in edition2024
+
 # version 0.4.0
 * follow [rename Generator to Coroutine](https://github.com/rust-lang/rust/pull/116958) and fix #10
 

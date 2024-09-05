@@ -60,6 +60,23 @@
 //! println!("coroutine is_done={}", g.is_done()); // true
 //! println!("coroutine returns {}", g.return_or_self().ok().unwrap()); // "done"
 //! ```
+//! 
+//! ## support immovable coroutine (self-referenced)
+//! ```
+//! #![feature(coroutines)]
+//!
+//! use gen_iter::gen_iter;
+//!
+//! let arr = [1, 2];
+//! let mut g = gen_iter!(static move {
+//!     let v = &arr;
+//!     for i in 0..v.len() {
+//!         yield v[i];
+//!     }
+//! });
+//!
+//! assert_eq!(g.collect::<Vec<i32>>(), [1, 2]);
+//! ```
 
 #![no_std]
 #![feature(coroutines, coroutine_trait)]

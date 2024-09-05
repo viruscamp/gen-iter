@@ -11,7 +11,10 @@ use core::pin::Pin;
 /// 2. safe to call `next()` after coroutine is done without panic
 /// 3. maybe less efficient than `GenIter<G>`
 #[derive(Copy, Clone, Debug)]
-pub struct GenIterReturn<G: Coroutine + Unpin>(Result<G::Return, G>);
+pub struct GenIterReturn<G: Coroutine + Unpin>(
+    #[doc(hidden)]
+    pub Result<G::Return, G>
+);
 
 impl<G: Coroutine + Unpin> GenIterReturn<G> {
     #[inline]
@@ -72,6 +75,7 @@ impl<G: Coroutine + Unpin> From<G> for GenIterReturn<G> {
 }
 
 /// macro to simplify iterator - via - coroutine with return value construction
+/// - create a movable coroutine as `Iterator`
 /// ```
 /// #![feature(coroutines)]
 ///
@@ -88,6 +92,26 @@ impl<G: Coroutine + Unpin> From<G> for GenIterReturn<G> {
 /// assert_eq!((&mut g).next(), None); // safe to call `next()` after done
 /// assert_eq!(g.return_or_self().ok(), Some("done")); // get return value of the coroutine
 /// ```
+/// 
+/// - create an immovable coroutine (self-referenced) pinned in stack as `Iterator`
+/// ```
+/// #![feature(coroutines)]
+///
+/// use gen_iter::gen_iter_return;
+///
+/// let arr = [1, 2];
+/// let mut g = gen_iter_return!(static move {
+///     let v = &arr;
+///     for i in 0..v.len() {
+///        yield v[i];
+///     }
+///     return v.len();
+/// });
+///
+/// assert_eq!((&mut g).collect::<Vec<i32>>(), [1, 2]);
+/// assert_eq!(g.is_done(), true);
+/// assert_eq!(g.return_or_self().ok(), Some(2));
+/// ```
 #[macro_export]
 macro_rules! gen_iter_return {
     ($block: block) => {
@@ -95,6 +119,21 @@ macro_rules! gen_iter_return {
     };
     (move $block: block) => {
         $crate::GenIterReturn::new(#[coroutine] move || $block)
+    };
+
+    (static $block: block) => {
+        $crate::GenIterReturn {
+            0: ::core::result::Result::Err {
+                0: ::core::pin::pin!(#[coroutine] static || $block)
+            }
+        }
+    };
+    (static move $block: block) => {
+        $crate::GenIterReturn {
+            0: ::core::result::Result::Err {
+                0: ::core::pin::pin!(#[coroutine] static move || $block)
+            }
+        }
     };
 }
 
@@ -149,7 +188,7 @@ mod tests {
 
     /// normal usage using macro `gen_iter_return`
     #[test]
-    fn macro_usage() {
+    fn macro_gen_iter_return() {
         let mut g = gen_iter_return!(move {
             yield 1;
             yield 2;
@@ -165,5 +204,28 @@ mod tests {
 
         assert_eq!(g.is_done(), true);
         assert_eq!(g.return_or_self().ok(), Some("done"));
+    }
+
+    /// use macro `gen_iter_return` to make a immovable coroutine
+    #[test]
+    fn macro_gen_iter_return_static_move() {
+        let arr = [1, 2];
+        let mut g = gen_iter_return!(static move {
+            let v = &arr;
+            for i in 0..v.len() {
+                yield v[i];
+            }
+            return v.len();
+        });
+
+        let (mut sum, mut count) = (0, 0);
+        for y in &mut g {
+            sum += y;
+            count += 1;
+        }
+        assert_eq!((sum, count), (3, 2));
+
+        assert_eq!(g.is_done(), true);
+        assert_eq!(g.return_or_self().ok(), Some(2));
     }
 }
