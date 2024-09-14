@@ -9,7 +9,7 @@
 //! [`GenIter`] converts a [`Coroutine<(), Return=()>`](core::ops::Coroutine) into an iterator over the
 //! yielded type of the coroutine. The return type of the coroutine needs to be `()`.
 //!
-//! [`gen_iter!`] helps to create a [`GenIter`]
+//! ### [`gen_iter!`] helps to create a [`GenIter`]
 //!
 //! ```
 //! #![feature(coroutines)]
@@ -35,13 +35,47 @@
 //!     println!("{}", elem);
 //! }
 //! ```
+//! ### compare to gen block in edition2024
+//! 
+//! <div style="display:flex; gap: 2rem">
+//! <div>
+//! 
+//! ```ignore
+//! # #![feature(coroutines)]
+//! #![feature(gen_blocks)]
+//! let gen1 = gen {
+//!     yield 1;
+//!     yield 2;
+//! };
+//! for x in gen1 {
+//!     println!("{x}");
+//! }
+//! ```
+//! 
+//! </div>
+//! <div>
+//! 
+//! ```
+//! # #![feature(coroutines)]
+//! use gen_iter::gen_iter;
+//! let gen1 = gen_iter!({
+//!     yield 1;
+//!     yield 2;
+//! });
+//! for x in gen1 {
+//!     println!("{x}");
+//! }
+//! ```
+//! 
+//! </div>
+//! </div>
 //! 
 //! ## [`GenIterReturn`] and [`gen_iter_return!`]
 //! [`GenIterReturn`] can be converted from a [`Coroutine<()>`](core::ops::Coroutine),
 //! `&mut GenIterReturn<G>` can be used as iterator.
 //! The return value of the coroutine can be got after the iterator is exhausted.
 //! 
-//! [`gen_iter_return!`] helps to create a [`GenIterReturn`].
+//! ### [`gen_iter_return!`] helps to create a [`GenIterReturn`].
 //! 
 //! ```
 //! #![feature(coroutines)]
@@ -62,6 +96,8 @@
 //! ```
 //! 
 //! ## support immovable coroutine (self-referenced)
+//! The created `GenIter<_>` cannot be moved out of current stack frame,
+//! cause the underlying coroutine is pinned in stack.
 //! ```
 //! #![feature(coroutines)]
 //!
